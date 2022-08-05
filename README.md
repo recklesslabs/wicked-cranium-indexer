@@ -2,7 +2,7 @@
 
 This indexer fetches all `Transfer` events on the The Wicked Cranium [contract](https://etherscan.io/address/0x85f740958906b317de6ed79663012859067e745b) every **5 minutes** and updates a Firestore database with up-to-date ownership for every token.
 
-I'm using a Firebase Cloud Function that triggers [on a schedule](https://firebase.google.com/docs/functions/schedule-functions) of 5 minutes.
+## Cloud Database
 
 The Firestore database _definition_ is as follows:
 
@@ -19,3 +19,9 @@ The Firestore database _definition_ is as follows:
 - Collection `last_update_block`
 
   This collection just has one document - `last_update_block` and the field is of the shape `{ block: String }` where the String represents the last [block number](https://etherscan.io/blocks) the database was updated.
+
+## Cloud Function
+
+I'm using a Firebase Cloud Function that triggers [on a schedule](https://firebase.google.com/docs/functions/schedule-functions) of 5 minutes.
+
+[Source Code](./index.js)
