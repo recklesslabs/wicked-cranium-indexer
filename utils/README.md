@@ -47,8 +47,7 @@ if (SETUP) {
 
 ## Fetching all owners using Infura and Ethers
 
-Moralis seemed to keep failing for me, so I used Infura and Ethers to get owners of each token. Appending each response to a file makes it
-easy to restart from where we left off in case of a failure.
+I used Infura and Ethers to get owners of each token. Appending each response to a file makes it easy to restart from where we left off in case of a failure.
 
 ```js
 let ethers = require("ethers");
@@ -70,6 +69,50 @@ async function getOwners(startTokenId, endTokenId, outFile) {
 }
 
 getOwners(1, 10762, "tokenOwnership.json");
+```
+
+Here is another version using Moralis, although this is more prone to crashing mid way and does not provide the tokens in order so harder to restart in case of a failure.
+
+```js
+require("dotenv").config();
+const fs = require("fs");
+
+let moralisServerUrl = process.env.MORALIS_SERVER_URL;
+let moralisAppId = process.env.MORALIS_APP_ID;
+let moralisMasterKey = process.env.MORALIS_MASTER_KEY;
+
+const Moralis = require("moralis/node");
+
+const serverUrl = moralisServerUrl;
+const appId = moralisAppId;
+const masterKey = moralisMasterKey;
+
+const fetchAllOwnersMoralis = async () => {
+  await Moralis.start({ serverUrl, appId, masterKey });
+
+  let options = {
+    address: process.env.NFT_CONTRACT_ADDRESS,
+    chain: "eth",
+    limit: 100,
+  };
+
+  let currentPage = await Moralis.Web3API.token.getNFTOwners(options);
+  let res = currentPage.result;
+
+  let cursorToken = currentPage.cursor;
+
+  while (cursorToken !== null) {
+    await new Promise((r) => setTimeout(r, 10000));
+    options["cursor"] = currentPage.cursor;
+    currentPage = await Moralis.Web3API.token.getNFTOwners(options);
+    cursorToken = currentPage.cursor;
+    res = res.concat(currentPage.result);
+  }
+
+  return { data: res.map((e) => ({ token: e.token_id, address: e.owner_of })) };
+};
+
+fetchAllOwnersMoralis();
 ```
 
 ## Verify Checksum of fetched owners
@@ -137,3 +180,50 @@ fetchedDataToDB(inFile, outFile, startBlock);
 ## Upload the initial database to Firestore
 
 Once the right data definition is constructed, we can start populating the initial database
+
+```js
+const { initializeApp, applicationDefault, cert } = require("firebase-admin/app");
+const { getFirestore, Timestamp, FieldValue } = require("firebase-admin/firestore");
+const fs = require("fs");
+
+async function initialDBUpload(jsonDBFile) {
+  const serviceAccount = require("./service-account-key.json");
+
+  initializeApp({
+    credential: cert(serviceAccount),
+  });
+
+  const db = getFirestore();
+
+  let { address_to_tokens, last_update_block, tokens_to_address } = JSON.parse(
+    fs.readFileSync(jsonDBFile, { encoding: "utf-8" })
+  );
+
+  let all_addresses = Object.keys(address_to_tokens);
+
+  for (let i = 0; i < all_addresses.length; i++) {
+    await new Promise((r) => setTimeout(r, 100));
+    let address = all_addresses[i];
+    let tokensArr = address_to_tokens[address];
+    await db.collection("address_to_tokens").doc(address).set({
+      tokens: tokensArr,
+    });
+  }
+
+  let all_tokens = Object.keys(tokens_to_address);
+  for (let i = 0; i < all_tokens.length; i++) {
+    await new Promise((r) => setTimeout(r, 100));
+    const token = all_tokens[i];
+    const addr = tokens_to_address[token];
+    await db.collection("tokens_to_address").doc(token).set({
+      owner: addr,
+    });
+  }
+
+  await db.collection("last_update_block").doc("last_update_block").set({
+    block: last_update_block,
+  });
+}
+
+initialDBUpload(jsonDBFile);
+```
