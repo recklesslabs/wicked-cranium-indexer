@@ -22,6 +22,8 @@ The Firestore database _definition_ is as follows:
 
 ## Cloud Function
 
-I'm using a Firebase Cloud Function that triggers [on a schedule](https://firebase.google.com/docs/functions/schedule-functions) of 5 minutes.
+I'm using a Firebase Cloud Function that triggers [on a schedule](https://firebase.google.com/docs/functions/schedule-functions) of 5 minutes. Find the source Code in [`index.js`](./index.js).
 
-[Source Code](./index.js)
+## Utils
+
+Some useful scripts used to fetch, populate, and emulate can be found in [**`utils/README.md`**](./utils/README.md)
